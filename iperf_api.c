@@ -193,11 +193,6 @@ iperf_get_test_zerocopy(struct iperf_test *ipt)
     return ipt->zerocopy;
 }
 
-int
-iperf_get_test_may_use_sigalrm(struct iperf_test *ipt)
-{
-    return ipt->may_use_sigalrm;
-}
 
 char
 iperf_get_test_unit_format(struct iperf_test *ipt)
@@ -340,11 +335,6 @@ iperf_set_test_zerocopy(struct iperf_test *ipt, int zerocopy)
     ipt->zerocopy = zerocopy;
 }
 
-void
-iperf_set_test_may_use_sigalrm(struct iperf_test *ipt, int may_use_sigalrm)
-{
-    ipt->may_use_sigalrm = may_use_sigalrm;
-}
 
 void
 iperf_set_test_unit_format(struct iperf_test *ipt, char unit_format)
@@ -1499,7 +1489,6 @@ iperf_defaults(struct iperf_test *testp)
     memset(testp->cookie, 0, COOKIE_SIZE);
 
     testp->multisend = 10;	/* arbitrary */
-    testp->may_use_sigalrm = 0;
 
     /* Set up protocol list */
     SLIST_INIT(&testp->streams);
