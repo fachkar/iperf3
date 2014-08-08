@@ -2134,8 +2134,12 @@ iperf_free_stream(struct iperf_stream *sp)
     struct iperf_interval_results *irp, *nirp;
 
     /* XXX: need to free interval list too! */
-    munmap(sp->buffer, sp->test->settings->blksize);
-    close(sp->buffer_fd);
+   if (sp->test->zerocopy) {
+        munmap(sp->buffer, sp->test->settings->blksize);
+        close(sp->buffer_fd);
+    } else {
+        free(sp->buffer);
+    }
     if (sp->diskfile_fd >= 0)
 	close(sp->diskfile_fd);
     for (irp = TAILQ_FIRST(&sp->result->interval_results); irp != TAILQ_END(sp->result->interval_results); irp = nirp) {
@@ -2179,32 +2183,33 @@ iperf_new_stream(struct iperf_test *test, int s)
     TAILQ_INIT(&sp->result->interval_results);
     
     /* Create and randomize the buffer */
-    sp->buffer_fd = mkstemp(template);
-    if (sp->buffer_fd == -1) {
-        i_errno = IECREATESTREAM;
-        free(sp->result);
-        free(sp);
-        return NULL;
-    }
-    if (unlink(template) < 0) {
-        i_errno = IECREATESTREAM;
-        free(sp->result);
-        free(sp);
-        return NULL;
-    }
-    if (ftruncate(sp->buffer_fd, test->settings->blksize) < 0) {
-        i_errno = IECREATESTREAM;
-        free(sp->result);
-        free(sp);
-        return NULL;
-    }
-    sp->buffer = (char *) mmap(NULL, test->settings->blksize, PROT_READ|PROT_WRITE, MAP_PRIVATE, sp->buffer_fd, 0);
-    if (sp->buffer == MAP_FAILED) {
-        i_errno = IECREATESTREAM;
-        free(sp->result);
-        free(sp);
-        return NULL;
-    }
+    if (sp->test->zerocopy) {
+        sp->buffer_fd = mkstemp(template);
+        if (sp->buffer_fd == -1) {
+            i_errno = IECREATESTREAM;
+            return NULL;
+        }
+        if (unlink(template) < 0) {
+            i_errno = IECREATESTREAM;
+            return NULL;
+        }
+        if (ftruncate(sp->buffer_fd, test->settings->blksize) < 0) {
+            i_errno = IECREATESTREAM;
+            return NULL;
+        }
+        sp->buffer = (char *) mmap(NULL, test->settings->blksize, PROT_READ|PROT_WRITE, MAP_PRIVATE, sp->buffer_fd, 0);
+        if (sp->buffer == MAP_FAILED) {
+            i_errno = IECREATESTREAM;
+            return NULL;
+        }
+    } else {
+        sp->buffer_fd = -1;
+        sp->buffer = malloc(test->settings->blksize);
+        if (!sp->buffer) {
+            i_errno = IECREATESTREAM;
+            return NULL;
+        }
+     }
     srandom(time(NULL));
     for (i = 0; i < test->settings->blksize; ++i)
         sp->buffer[i] = random();
