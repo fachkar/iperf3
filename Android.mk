@@ -17,7 +17,7 @@ LOCAL_SRC_FILES := \
    tcp_info.c \
    tcp_window_size.c \
    timer.c \
-   units.c     
+   units.c
 
 LOCAL_C_INCLUDES := $(LOCAL_PATH)
 LOCAL_CFLAGS := -O2 -W -Wall -DHAVE_CONFIG_H
@@ -43,6 +43,7 @@ LOCAL_SRC_FILES := $(iperf_src_files)
 LOCAL_CFLAGS := $(iperf_cflags)
 # LOCAL_SYSTEM_SHARED_LIBRARIES := $(e2fsck_system_shared_libraries)
 LOCAL_STATIC_LIBRARIES := libiperf
-LOCAL_MODULE := iperf
+LOCAL_MODULE := iperf3
 LOCAL_MODULE_TAGS := eng
 include $(BUILD_EXECUTABLE)
+
