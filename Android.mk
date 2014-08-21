@@ -4,22 +4,13 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES := \
-   cjson.c \
-   iperf_api.c \
-   iperf_error.c \
-   iperf_client_api.c \
-   iperf_server_api.c \
-   iperf_tcp.c \
-   iperf_udp.c \
-   iperf_util.c \
-   locale.c \
-   net.c \
-   tcp_info.c \
-   tcp_window_size.c \
-   timer.c \
-   units.c
+    cjson.c iperf_api.c iperf_error.c \
+    iperf_client_api.c iperf_server_api.c iperf_tcp.c \
+    iperf_udp.c iperf_sctp.c iperf_util.c locale.c net.c \
+    tcp_info.c tcp_window_size.c timer.c units.c
 
-LOCAL_C_INCLUDES := $(LOCAL_PATH)
+
+LOCAL_C_INCLUDES := $(LOCAL_PATH) external/sctp
 LOCAL_CFLAGS := -O2 -W -Wall -DHAVE_CONFIG_H
 # LOCAL_PRELINK_MODULE := false
 LOCAL_MODULE := libiperf

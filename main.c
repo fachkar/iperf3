@@ -6,6 +6,7 @@
  * This code is distributed under a BSD style license, see the LICENSE file
  * for complete information.
  */
+#include "iperf_config.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,13 +15,17 @@
 #include <errno.h>
 #include <signal.h>
 #include <unistd.h>
+#ifdef HAVE_STDINT_H
 #include <stdint.h>
+#endif
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#ifdef HAVE_STDINT_H
 #include <stdint.h>
+#endif
 #include <netinet/tcp.h>
 
 #include "iperf.h"
@@ -78,7 +83,6 @@ main(int argc, char **argv)
         iperf_errexit(NULL, "create new test error - %s", iperf_strerror(i_errno));
     iperf_defaults(test);	/* sets defaults */
 
-
     if (iperf_parse_arguments(test, argc, argv) < 0) {
         iperf_err(test, "parameter error - %s", iperf_strerror(i_errno));
         fprintf(stderr, "\n");
@@ -110,8 +114,12 @@ run(struct iperf_test *test)
 		}
 	    }
 	    consecutive_errors = 0;
+	    if (iperf_create_pidfile(test) < 0) {
+		i_errno = IEPIDFILE;
+		iperf_errexit(test, "error - %s", iperf_strerror(i_errno));
+	    }
             for (;;) {
-                if (iperf_run_server(test) < 0) {
+		if (iperf_run_server(test) < 0) {
 		    iperf_err(test, "error - %s", iperf_strerror(i_errno));
                     fprintf(stderr, "\n");
 		    ++consecutive_errors;
@@ -123,9 +131,10 @@ run(struct iperf_test *test)
 		    consecutive_errors = 0;
                 iperf_reset_test(test);
             }
+	    iperf_delete_pidfile(test);
             break;
-        case 'c':
-            if (iperf_run_client(test) < 0)
+	case 'c':
+	    if (iperf_run_client(test) < 0)
 		iperf_errexit(test, "error - %s", iperf_strerror(i_errno));
             break;
         default:

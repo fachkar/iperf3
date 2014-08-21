@@ -7,4 +7,4 @@
  * for complete information.
  */
 
-#define IPERF_VERSION "3-CURRENT"
+#define IPERF_VERSION "@PACKAGE_VERSION@"

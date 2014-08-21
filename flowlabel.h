@@ -19,18 +19,20 @@
    conflicts with "netinet/in.h" .
 */
 
-// struct in6_flowlabel_req
-// {
-//     struct in6_addr flr_dst;
-//     __u32   flr_label;
-//     __u8    flr_action;
-//     __u8    flr_share;
-//     __u16   flr_flags;
-//     __u16   flr_expires;
-//     __u16   flr_linger;
-//     __u32   __flr_pad;
-//     /* Options in format of IPV6_PKTOPTIONS */
-// };
+#ifndef __ANDROID__
+struct in6_flowlabel_req
+{
+    struct in6_addr flr_dst;
+    __u32   flr_label;
+    __u8    flr_action;
+    __u8    flr_share;
+    __u16   flr_flags;
+    __u16   flr_expires;
+    __u16   flr_linger;
+    __u32   __flr_pad;
+    /* Options in format of IPV6_PKTOPTIONS */
+};
+#endif
 
 #define IPV6_FL_A_GET           0
 #define IPV6_FL_A_PUT           1

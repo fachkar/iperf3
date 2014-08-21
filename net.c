@@ -1,11 +1,12 @@
 /*
- * Copyright (c) 2009-2011, The Regents of the University of California,
+ * Copyright (c) 2009-2014, The Regents of the University of California,
  * through Lawrence Berkeley National Laboratory (subject to receipt of any
  * required approvals from the U.S. Dept. of Energy).  All rights reserved.
  *
  * This code is distributed under a BSD style license, see the LICENSE file
  * for complete information.
  */
+#include "iperf_config.h"
 
 #include <stdio.h>
 #include <unistd.h>
@@ -20,6 +21,7 @@
 #include <string.h>
 #include <fcntl.h>
 
+#ifdef HAVE_SENDFILE
 #ifdef linux
 #include <sys/sendfile.h>
 #else
@@ -34,6 +36,7 @@
 #endif
 #endif
 #endif
+#endif /* HAVE_SENDFILE */
 
 #include "iperf_util.h"
 #include "net.h"
@@ -104,11 +107,28 @@ netannounce(int domain, int proto, char *local, int port)
 
     snprintf(portstr, 6, "%d", port);
     memset(&hints, 0, sizeof(hints));
-    hints.ai_family = (domain == AF_UNSPEC ? AF_INET6 : domain);
+    /*
+     * If binding to the wildcard address with no explicit address
+     * family specified, then force us to get an AF_INET6 socket.  On
+     * CentOS 6 and MacOS, getaddrinfo(3) with AF_UNSPEC in ai_family,
+     * and ai_flags containing AI_PASSIVE returns a result structure
+     * with ai_family set to AF_INET, with the result that we create
+     * and bind an IPv4 address wildcard address and by default, we
+     * can't accept IPv6 connections.
+     *
+     * On FreeBSD, under the above circumstances, ai_family in the
+     * result structure is set to AF_INET6.
+     */
+    if (domain == AF_UNSPEC && !local) {
+	hints.ai_family = AF_INET6;
+    }
+    else {
+	hints.ai_family = domain;
+    }
     hints.ai_socktype = proto;
     hints.ai_flags = AI_PASSIVE;
     if (getaddrinfo(local, portstr, &hints, &res) != 0)
-        return -1; 
+        return -1;
 
     s = socket(res->ai_family, proto, 0);
     if (s < 0) {
@@ -117,24 +137,34 @@ netannounce(int domain, int proto, char *local, int port)
     }
 
     opt = 1;
-    if (setsockopt(s, SOL_SOCKET, SO_REUSEADDR, 
+    if (setsockopt(s, SOL_SOCKET, SO_REUSEADDR,
 		   (char *) &opt, sizeof(opt)) < 0) {
 	close(s);
 	freeaddrinfo(res);
 	return -1;
     }
-    if (domain == AF_UNSPEC || domain == AF_INET6) {
+    /*
+     * If we got an IPv6 socket, figure out if it should accept IPv4
+     * connections as well.  We do that if and only if no address
+     * family was specified explicitly.  Note that we can only
+     * do this if the IPV6_V6ONLY socket option is supported.  Also,
+     * OpenBSD explicitly omits support for IPv4-mapped addresses,
+     * even though it implements IPV6_V6ONLY.
+     */
+#if defined(IPV6_V6ONLY) && !defined(__OpenBSD__)
+    if (res->ai_family == AF_INET6 && (domain == AF_UNSPEC || domain == AF_INET6)) {
 	if (domain == AF_UNSPEC)
 	    opt = 0;
-	else if (domain == AF_INET6)
+	else
 	    opt = 1;
-	if (setsockopt(s, IPPROTO_IPV6, IPV6_V6ONLY, 
+	if (setsockopt(s, IPPROTO_IPV6, IPV6_V6ONLY,
 		       (char *) &opt, sizeof(opt)) < 0) {
 	    close(s);
 	    freeaddrinfo(res);
 	    return -1;
 	}
     }
+#endif /* IPV6_V6ONLY */
 
     if (bind(s, (struct sockaddr *) res->ai_addr, res->ai_addrlen) < 0) {
         close(s);
@@ -143,7 +173,7 @@ netannounce(int domain, int proto, char *local, int port)
     }
 
     freeaddrinfo(res);
-    
+
     if (proto == SOCK_STREAM) {
         if (listen(s, 5) < 0) {
 	    close(s);
@@ -197,7 +227,7 @@ Nwrite(int fd, const char *buf, size_t count, int prot)
 	if (r < 0) {
 	    switch (errno) {
 		case EINTR:
-        case EAGAIN:
+		case EAGAIN:
 		return count - nleft;
 
 		case ENOBUFS:
@@ -218,19 +248,12 @@ Nwrite(int fd, const char *buf, size_t count, int prot)
 int
 has_sendfile(void)
 {
-#ifdef linux
+#if defined(HAVE_SENDFILE)
     return 1;
-#else
-#ifdef __FreeBSD__
-    return 1;
-#else
-#if defined(__APPLE__) && defined(__MACH__) && defined(MAC_OS_X_VERSION_10_6)	/* OS X */
-    return 1;
-#else
+#else /* HAVE_SENDFILE */
     return 0;
-#endif
-#endif
-#endif
+#endif /* HAVE_SENDFILE */
+
 }
 
 
@@ -242,6 +265,7 @@ int
 Nsendfile(int fromfd, int tofd, const char *buf, size_t count)
 {
     off_t offset;
+#if defined(HAVE_SENDFILE)
 #if defined(__FreeBSD__) || (defined(__APPLE__) && defined(__MACH__) && defined(MAC_OS_X_VERSION_10_6))
     off_t sent;
 #endif
@@ -274,10 +298,9 @@ Nsendfile(int fromfd, int tofd, const char *buf, size_t count)
 	if (r < 0) {
 	    switch (errno) {
 		case EINTR:
-        case EAGAIN:            
+		case EAGAIN:
 		return count - nleft;
 
-		
 		case ENOBUFS:
 		case ENOMEM:
 		return NET_SOFTERROR;
@@ -290,6 +313,10 @@ Nsendfile(int fromfd, int tofd, const char *buf, size_t count)
 	nleft -= r;
     }
     return count;
+#else /* HAVE_SENDFILE */
+    errno = ENOSYS;	/* error if somehow get called without HAVE_SENDFILE */
+    return -1;
+#endif /* HAVE_SENDFILE */
 }
 
 /*************************************************************************/

@@ -24,7 +24,9 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <pthread.h>
+#ifdef HAVE_STDINT_H
 #include <stdint.h>
+#endif
 #include <netinet/tcp.h>
 #include <sys/time.h>
 #include <sys/resource.h>
@@ -65,8 +67,8 @@ iperf_server_listen(struct iperf_test *test)
     }
 
     if (!test->json_output) {
-	printf("-----------------------------------------------------------\n");
-	printf("Server listening on %d\n", test->server_port);
+	iprintf(test, "-----------------------------------------------------------\n");
+	iprintf(test, "Server listening on %d\n", test->server_port);
     }
 
     // This needs to be changed to reflect if client has different window size
@@ -136,7 +138,7 @@ iperf_accept(struct iperf_test *test)
         if (iperf_exchange_parameters(test) < 0)
             return -1;
 	if (test->server_affinity != -1) 
-	    if (iperf_setaffinity(test->server_affinity) != 0)
+	    if (iperf_setaffinity(test, test->server_affinity) != 0)
 		return -1;
         if (test->on_connect)
             test->on_connect(test);
@@ -436,7 +438,7 @@ iperf_run_server(struct iperf_test *test)
 	iperf_got_sigend(test);
 
     if (test->affinity != -1) 
-	if (iperf_setaffinity(test->affinity) != 0)
+	if (iperf_setaffinity(test, test->affinity) != 0)
 	    return -1;
 
     if (test->json_output)
@@ -449,8 +451,8 @@ iperf_run_server(struct iperf_test *test)
     } else if (test->verbose) {
 	iprintf(test, "%s\n", version);
 	iprintf(test, "%s", "");
-	fflush(stdout);
-	system("uname -a");
+	iprintf(test, "%s\n", get_system_info());
+	iflush(test);
     }
 
     // Open socket and listen
@@ -515,7 +517,11 @@ iperf_run_server(struct iperf_test *test)
 			else
 			    FD_SET(s, &test->read_set);
 			if (s > test->max_fd) test->max_fd = s;
-                        setnonblocking(s, 1);
+
+			// If the protocol isn't UDP, set nonblocking sockets
+			if (test->protocol->id != Pudp) {
+			    setnonblocking(s, 1);
+			}
 
                         streams_accepted++;
                         if (test->on_new_stream)
@@ -603,8 +609,10 @@ iperf_run_server(struct iperf_test *test)
 	    return -1;
     } 
 
+    iflush(test);
+
     if (test->server_affinity != -1) 
-	if (iperf_clearaffinity() != 0)
+	if (iperf_clearaffinity(test) != 0)
 	    return -1;
 
     return 0;

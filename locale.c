@@ -1,4 +1,10 @@
 /*--------------------------------------------------------------- 
+ * Copyright (c) 2014, The Regents of the University of California,
+ * through Lawrence Berkeley National Laboratory (subject to receipt of any
+ * required approvals from the U.S. Dept. of Energy).  All rights reserved.
+ *
+ * Based on code that is:
+ *
  * Copyright (c) 1999,2000,2001,2002,2003
  * The Board of Trustees of the University of Illinois            
  * All Rights Reserved.                                           
@@ -50,6 +56,7 @@
  * -------------------------------------------------------------------
  * Strings and other stuff that is locale specific.
  * ------------------------------------------------------------------- */
+#include "iperf_config.h"
 
 #include "version.h"
 
@@ -73,51 +80,65 @@ const char usage_longstr[] = "Usage: iperf [-s|-c host] [options]\n"
                            "  -f, --format    [kmgKMG]  format to report: Kbits, Mbits, KBytes, MBytes\n"
                            "  -i, --interval  #         seconds between periodic bandwidth reports\n"
                            "  -F, --file name           xmit/recv the specified file\n"
+#if defined(HAVE_CPU_AFFINITY)
                            "  -A, --affinity n/n,m      set CPU affinity\n"
+#endif /* HAVE_CPU_AFFINITY */
+                           "  -B, --bind      <host>    bind to a specific interface\n"
                            "  -V, --verbose             more detailed output\n"
                            "  -J, --json                output in JSON format\n"
+                           "  --logfile f               send output to a log file\n"
                            "  -d, --debug               emit debugging output\n"
                            "  -v, --version             show version information and quit\n"
                            "  -h, --help                show this message and quit\n"
                            "Server specific:\n"
                            "  -s, --server              run in server mode\n"
                            "  -D, --daemon              run the server as a daemon\n"
+                           "  -I, --pidfile file        write PID file\n"
                            "Client specific:\n"
                            "  -c, --client    <host>    run in client mode, connecting to <host>\n"
+#if defined(HAVE_SCTP)
+                           "  --sctp                    use SCTP rather than TCP\n"
+#endif /* HAVE_SCTP */
                            "  -u, --udp                 use UDP rather than TCP\n"
                            "  -b, --bandwidth #[KMG][/#] target bandwidth in bits/sec\n"
                            "                            (default %d Mbit/sec for UDP, unlimited for TCP)\n"
                            "                            (optional slash and packet count for burst mode)\n"
                            "  -t, --time      #         time in seconds to transmit for (default %d secs)\n"
-                           "  -n, --num       #[KMG]    number of bytes to transmit (instead of -t)\n"
+                           "  -n, --bytes     #[KMG]    number of bytes to transmit (instead of -t)\n"
                            "  -k, --blockcount #[KMG]   number of blocks (packets) to transmit (instead of -t or -n)\n"
                            "  -l, --len       #[KMG]    length of buffer to read or write\n"
 			   "                            (default %d KB for TCP, %d KB for UDP)\n"
                            "  -P, --parallel  #         number of parallel client streams to run\n"
                            "  -R, --reverse             run in reverse mode (server sends, client receives)\n"
                            "  -w, --window    #[KMG]    TCP window size (socket buffer size)\n"
-                           "  -B, --bind      <host>    bind to a specific interface or multicast address\n"
-#if defined(linux)
-                           "  -C, --linux-congestion <algo>  set TCP congestion control algorithm (Linux only)\n"
-#endif
+#if defined(HAVE_TCP_CONGESTION)
+                           "  -C, --congestion <algo>   set TCP congestion control algorithm (Linux and FreeBSD only)\n"
+#endif /* HAVE_TCP_CONGESTION */
                            "  -M, --set-mss   #         set TCP maximum segment size (MTU - 40 bytes)\n"
                            "  -N, --nodelay             set TCP no delay, disabling Nagle's Algorithm\n"
                            "  -4, --version4            only use IPv4\n"
                            "  -6, --version6            only use IPv6\n"
                            "  -S, --tos N               set the IP 'type of service'\n"
-#if defined(linux)
+#if defined(HAVE_FLOWLABEL)
                            "  -L, --flowlabel N         set the IPv6 flow label (only supported on Linux)\n"
-#endif
+#endif /* HAVE_FLOWLABEL */
                            "  -Z, --zerocopy            use a 'zero copy' method of sending data\n"
                            "  -O, --omit N              omit the first n seconds\n"
                            "  -T, --title str           prefix every output line with this string\n"
+                           "  --get-server-output       get results from server\n"
 
 #ifdef NOT_YET_SUPPORTED /* still working on these */
 #endif
 
 			   "\n"
                            "[KMG] indicates options that support a K/M/G suffix for kilo-, mega-, or giga-\n"
-                           "Report bugs to <iperf-users@lists.sourceforge.net>\n";
+			   "\n"
+#ifdef PACKAGE_URL
+                           "iperf3 homepage at: " PACKAGE_URL "\n"
+#endif /* PACKAGE_URL */
+#ifdef PACKAGE_BUGREPORT
+                           "Report bugs to:     " PACKAGE_BUGREPORT "\n";
+#endif /* PACKAGE_BUGREPORT */
 
 
 #ifdef OBSOLETE /* from old iperf: no longer supported. Add some of these back someday */
@@ -131,7 +152,7 @@ const char usage_longstr[] = "Usage: iperf [-s|-c host] [options]\n"
   "-y, --reportstyle C      report as a Comma-Separated Values\n"
 #endif
 
-const char version[] = "iperf version " IPERF_VERSION " (" IPERF_VERSION_DATE ")";
+const char version[] = PACKAGE_STRING;
 
 /* -------------------------------------------------------------------
  * settings

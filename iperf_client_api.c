@@ -331,7 +331,7 @@ iperf_run_client(struct iperf_test * test)
 	iperf_got_sigend(test);
 
     if (test->affinity != -1)
-	if (iperf_setaffinity(test->affinity) != 0)
+	if (iperf_setaffinity(test, test->affinity) != 0)
 	    return -1;
 
     if (test->json_output)
@@ -344,8 +344,8 @@ iperf_run_client(struct iperf_test * test)
     } else if (test->verbose) {
 	iprintf(test, "%s\n", version);
 	iprintf(test, "%s", "");
-	fflush(stdout);
-	system("uname -a");
+	iprintf(test, "%s\n", get_system_info());
+	iflush(test);
     }
 
     /* Start the client and connect to the server */
@@ -356,25 +356,23 @@ iperf_run_client(struct iperf_test * test)
     cpu_util(NULL);
 
     startup = 1;
-
     while (test->state != IPERF_DONE) {
-
-    memcpy(&read_set, &test->read_set, sizeof(fd_set));
-    memcpy(&write_set, &test->write_set, sizeof(fd_set));
-    (void) gettimeofday(&now, NULL);
-    timeout = tmr_timeout(&now);
-    result = select(test->max_fd + 1, &read_set, &write_set, NULL, timeout);
-    if (result < 0 && errno != EINTR) {
-        i_errno = IESELECT;
-        return -1;
-    }
-    if (result > 0) {
-        if (FD_ISSET(test->ctrl_sck, &read_set)) {
-            if (iperf_handle_message_client(test) < 0) {
-                return -1;
-            }
-            FD_CLR(test->ctrl_sck, &read_set);
-        }
+	memcpy(&read_set, &test->read_set, sizeof(fd_set));
+	memcpy(&write_set, &test->write_set, sizeof(fd_set));
+	(void) gettimeofday(&now, NULL);
+	timeout = tmr_timeout(&now);
+	result = select(test->max_fd + 1, &read_set, &write_set, NULL, timeout);
+	if (result < 0 && errno != EINTR) {
+  	    i_errno = IESELECT;
+	    return -1;
+	}
+	if (result > 0) {
+	    if (FD_ISSET(test->ctrl_sck, &read_set)) {
+ 	        if (iperf_handle_message_client(test) < 0) {
+		    return -1;
+		}
+		FD_CLR(test->ctrl_sck, &read_set);
+	    }
 	}
 
 	if (test->state == TEST_RUNNING) {
@@ -382,9 +380,13 @@ iperf_run_client(struct iperf_test * test)
 	    /* Is this our first time really running? */
 	    if (startup) {
 	        startup = 0;
-                SLIST_FOREACH(sp, &test->streams, streams) {
-                    setnonblocking(sp->socket, 1);
-                }		
+
+		// Set non-blocking for non-UDP tests
+		if (test->protocol->id != Pudp) {
+		    SLIST_FOREACH(sp, &test->streams, streams) {
+			setnonblocking(sp->socket, 1);
+		    }
+		}
 	    }
 
 	    if (test->reverse) {
@@ -393,7 +395,7 @@ iperf_run_client(struct iperf_test * test)
 		    return -1;
 	    } else {
 		// Regular mode. Client sends.
-        if (iperf_send(test, &write_set) < 0)
+		if (iperf_send(test, &write_set) < 0)
 		    return -1;
 	    }
 
@@ -406,20 +408,21 @@ iperf_run_client(struct iperf_test * test)
 	        ((test->duration != 0 && test->done) ||
 	         (test->settings->bytes != 0 && test->bytes_sent >= test->settings->bytes) ||
 	         (test->settings->blocks != 0 && test->blocks_sent >= test->settings->blocks))) {
-            
 
-                SLIST_FOREACH(sp, &test->streams, streams) {
-                    setnonblocking(sp->socket, 0);
-                }
+		// Unset non-blocking for non-UDP tests
+		if (test->protocol->id != Pudp) {
+		    SLIST_FOREACH(sp, &test->streams, streams) {
+			setnonblocking(sp->socket, 0);
+		    }
+		}
 
-	         }
 		/* Yes, done!  Send TEST_END. */
 		test->done = 1;
 		cpu_util(test->cpu_util);
 		test->stats_callback(test);
 		if (iperf_set_send_state(test, TEST_END) != 0)
 		    return -1;
-		
+	    }
 	}
 	// If we're in reverse mode, continue draining the data
 	// connection(s) even if test is over.  This prevents a
@@ -439,6 +442,8 @@ iperf_run_client(struct iperf_test * test)
 	iprintf(test, "\n");
 	iprintf(test, "%s", report_done);
     }
+
+    iflush(test);
 
     return 0;
 }

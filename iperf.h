@@ -10,12 +10,22 @@
 #ifndef __IPERF_H
 #define __IPERF_H
 
+#include "iperf_config.h"
+
 #include <sys/time.h>
 #include <sys/types.h>
-#include <sys/select.h>
+#ifdef HAVE_STDINT_H
 #include <stdint.h>
+#endif
+#include <sys/select.h>
 #include <sys/socket.h>
 #include <netinet/tcp.h>
+
+#if defined(HAVE_CPUSET_SETAFFINITY)
+#include <sys/param.h>
+#include <sys/cpuset.h>
+#endif /* HAVE_CPUSET_SETAFFINITY */
+
 #include "timer.h"
 #include "queue.h"
 #include "cjson.h"
@@ -148,6 +158,11 @@ struct protocol {
     SLIST_ENTRY(protocol) protocols;
 };
 
+struct iperf_textline {
+    char *line;
+    TAILQ_ENTRY(iperf_textline) textlineentries;
+};
+
 struct iperf_test
 {
     char      role;                             /* 'c' lient or 's' erver */
@@ -162,8 +177,15 @@ struct iperf_test
     int       duration;                         /* total duration of test (-t flag) */
     char     *diskfile_name;			/* -F option */
     int       affinity, server_affinity;	/* -A option */
+#if defined(HAVE_CPUSET_SETAFFINITY)
+    cpuset_t cpumask;
+#endif /* HAVE_CPUSET_SETAFFINITY */
     char     *title;				/* -T option */
     char     *congestion;			/* -C option */
+    char     *pidfile;				/* -P option */
+
+    char     *logfile;				/* --logfile option */
+    FILE     *outfile;
 
     int       ctrl_sck;
     int       listener;
@@ -177,10 +199,11 @@ struct iperf_test
     int	      json_output;                      /* -J option - JSON output */
     int	      zerocopy;                         /* -Z option - use sendfile */
     int       debug;				/* -d option - enable debug */
+    int	      get_server_output;		/* --get-server-output */
 
     int	      multisend;
 
-
+    char     *json_output_string; /* rendered JSON output if json_output is set */
     /* Select related parameters */
     int       max_fd;
     fd_set    read_set;                         /* set of read sockets */
@@ -221,8 +244,17 @@ struct iperf_test
     /* cJSON handles for use when in -J mode */\
     cJSON *json_top;
     cJSON *json_start;
+    cJSON *json_connected;
     cJSON *json_intervals;
     cJSON *json_end;
+
+    /* Server output (use on client side only) */
+    char *server_output_text;
+    cJSON *json_server_output;
+
+    /* Server output (use on server side only) */
+    TAILQ_HEAD(iperf_textlisthead, iperf_textline) server_output_list;
+
 };
 
 /* default settings */
@@ -242,7 +274,7 @@ struct iperf_test
 #define MAX_BLOCKSIZE MB
 #define MIN_INTERVAL 0.1
 #define MAX_INTERVAL 60.0
-#define MAX_TIME 3600
+#define MAX_TIME 86400
 #define MAX_BURST 1000
 #define MAX_MSS (9 * 1024)
 #define MAX_STREAMS 128

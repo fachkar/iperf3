@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2011, The Regents of the University of California,
+ * Copyright (c) 2009-2011, 2014, The Regents of the University of California,
  * through Lawrence Berkeley National Laboratory (subject to receipt of any
  * required approvals from the U.S. Dept. of Energy).  All rights reserved.
  *
@@ -11,6 +11,7 @@
 #define __IPERF_UTIL_H
 
 #include "cjson.h"
+#include <sys/select.h>
 
 void make_cookie(char *);
 
@@ -26,7 +27,9 @@ int delay(int64_t ns);
 
 void cpu_util(double pcpu[3]);
 
-char* get_system_info(void);
+const char* get_system_info(void);
+
+const char* get_optional_features(void);
 
 cJSON* iperf_json_printf(const char *format, ...);
 
