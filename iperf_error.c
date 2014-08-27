@@ -32,7 +32,7 @@ iperf_err(struct iperf_test *test, const char *format, ...)
 	    fprintf(test->outfile, "iperf3: %s\n", str);
 	}
 	else {
-	    fprintf(stderr, "iperf3: %s\n", str);
+        fprintf(stdout, "iperf3: %s\n", str);
 	}
     va_end(argp);
 }
@@ -54,7 +54,7 @@ iperf_errexit(struct iperf_test *test, const char *format, ...)
 	    fprintf(test->outfile, "iperf3: %s\n", str);
 	}
 	else {
-	    fprintf(stderr, "iperf3: %s\n", str);
+        fprintf(stdout, "iperf3: %s\n", str);
 	}
     va_end(argp);
     iperf_delete_pidfile(test);
@@ -309,7 +309,7 @@ iperf_strerror(int i_errno)
             perr = 1;
             break;
         case IESETCONGESTION:
-            snprintf(errstr, len, "unable to set TCP_CONGESTION: " 
+            snprintf(errstr, len, "unable to set TCP_CONGESTION: "
                                   "Supplied congestion control algorithm not supported on this host");
             break;
 	case IEPIDFILE:
